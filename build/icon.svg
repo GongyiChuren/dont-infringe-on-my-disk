@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Don't Infringe on My Disk icon">
+  <defs>
+    <linearGradient id="bg" x1="32" y1="16" x2="224" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#102638"/>
+      <stop offset="0.56" stop-color="#08111A"/>
+      <stop offset="1" stop-color="#071017"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="72" y1="70" x2="184" y2="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5EC4C9"/>
+      <stop offset="1" stop-color="#83D18B"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.37 0 0 0 0 0.77 0 0 0 0 0.79 0 0 0 0.45 0"/>
+      <feBlend in="SourceGraphic"/>
+    </filter>
+  </defs>
+  <rect x="18" y="18" width="220" height="220" rx="48" fill="url(#bg)"/>
+  <rect x="28" y="28" width="200" height="200" rx="39" fill="none" stroke="#5EC4C9" stroke-opacity="0.18" stroke-width="4"/>
+  <circle cx="184" cy="68" r="38" fill="#5EC4C9" fill-opacity="0.08"/>
+  <circle cx="72" cy="190" r="36" fill="#83D18B" fill-opacity="0.08"/>
+  <g transform="translate(38 39) scale(7.5)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10 16h.01" stroke="#83D18B" stroke-width="2.5"/>
+    <path d="M2.212 11.577a2 2 0 0 0-.212.896V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.527a2 2 0 0 0-.212-.896L18.55 5.11A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" stroke="url(#accent)" stroke-width="2.25" filter="url(#softGlow)"/>
+    <path d="M21.946 12.013H2.054" stroke="#F7FAF2" stroke-opacity="0.92" stroke-width="2.05"/>
+    <path d="M6 16h.01" stroke="#F7FAF2" stroke-opacity="0.88" stroke-width="2.5"/>
+  </g>
+  <path d="M176 154c0 23-16 34.5-35.1 41.2a5 5 0 0 1-3.1-.1C118.6 188.5 102 177 102 154v-32a5 5 0 0 1 5-5c9 0 20.2-5.4 28-12.2a5.8 5.8 0 0 1 7.2 0c7.8 6.8 19 12.2 28 12.2a5 5 0 0 1 5.8 5z" fill="#08111A" fill-opacity="0.7" stroke="#F7FAF2" stroke-opacity="0.92" stroke-width="7" stroke-linejoin="round"/>
+  <path d="m125 154 12 12 24-29" fill="none" stroke="#83D18B" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

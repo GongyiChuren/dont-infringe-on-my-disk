@@ -1,6 +1,6 @@
 {
   "name": "dont-infringe-on-my-disk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Don't Infringe on My Disk - AI disk cleanup assistant",
   "main": "./out/main/index.js",
@@ -46,10 +46,18 @@
     },
     "files": [
       "out/**",
-      "package.json"
+      "package.json",
+      "THIRD_PARTY_NOTICES.md"
+    ],
+    "extraResources": [
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
+      }
     ],
     "asar": true,
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "portable",
         "nsis"

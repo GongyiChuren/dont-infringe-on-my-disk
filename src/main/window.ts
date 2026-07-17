@@ -1,13 +1,18 @@
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 
 export function createMainWindow(): BrowserWindow {
+  const icon = app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.ico')
+    : path.join(process.cwd(), 'build', 'icon.ico')
+
   const window = new BrowserWindow({
     width: 1480,
     height: 920,
     minWidth: 1220,
     minHeight: 760,
     backgroundColor: '#08111a',
+    icon,
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
