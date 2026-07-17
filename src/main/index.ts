@@ -22,7 +22,7 @@ import { runScanJob } from './jobs'
 import { isLocalAiProvider, normalizeAiProvider, clampTopK, normalizeScanMode } from '../shared/settings'
 import { buildRecord } from '../shared/memory'
 import { appendAssistantTurn, createAssistantTurn } from '../shared/assistant'
-import { callAiAssistant, toAiChatMessages } from './ai-provider'
+import { callAiAssistant, callLocalCli, toAiChatMessages } from './ai-provider'
 import type { AiSettingsData, AiSettingsSavePayload, AssistantMemoryData, MemorySummary, Recommendation, ScanReport, SettingsData } from '../shared/types'
 
 type ScanState = {
@@ -237,8 +237,30 @@ function registerIpc() {
           turn.assistant.content = '（AI 调用失败，已回退本地规则模式：' + reason + '）\n' + turn.assistant.content
         }
       }
+    } else if (secret.provider === 'local-codex' || secret.provider === 'local-claude-code') {
+      const history = toAiChatMessages(assistantMemoryCache.messages)
+      history.push({ role: 'user', content: message })
+      const systemPrompt = buildAssistantSystemPrompt({
+        settings: state.settings,
+        memory: state.memory,
+        report: lastReportCache,
+        assistantMemory: assistantMemoryCache
+      })
+      const cliLabel = secret.provider === 'local-codex' ? 'codex' : 'claude-code'
+      try {
+        const aiReply = await callLocalCli({
+          provider: secret.provider,
+          systemPrompt,
+          messages: history,
+          cwd: state.dataDir
+        })
+        turn.assistant.content = aiReply
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        turn.assistant.content = '（' + cliLabel + ' 调用失败，已回退本地规则模式：' + reason + '）\n' + turn.assistant.content
+      }
     } else {
-      turn.assistant.content = '（本地规则模式，未联网）\n' + turn.assistant.content
+      turn.assistant.content = '（本地规则模式，未联网：local-opencode 暂未接入真实 CLI）\n' + turn.assistant.content
     }
     assistantMemoryCache = await saveAssistantMemory(state.dataDir, appendAssistantTurn(assistantMemoryCache, turn))
     return {
