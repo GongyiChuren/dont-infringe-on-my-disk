@@ -106,31 +106,54 @@ function sanitizeAssistantInput(payload: { message?: unknown }): string {
 }
 
 
+function riskLabel(risk: Recommendation['risk']): string {
+  return risk === 'low' ? '低风险' : risk === 'medium' ? '谨慎' : '高风险'
+}
+
 function buildAssistantSystemPrompt(state: { settings: SettingsData; memory: MemorySummary; report: ScanReport | null; assistantMemory: AssistantMemoryData }): string {
   const lines = [
     '你是 DIMD（Don\'t Infringe on My Disk）的清理助手。DIMD 只负责解释和推荐，永远不会替用户删除任何文件。',
     '回答用简体中文，简洁直接。',
     '当前设置：扫描根目录 ' + state.settings.rootPath + '；Top-K = ' + state.settings.topK + '；模式 = ' + state.settings.scanMode + '。',
-    '你有下面这份「当前 Top-K 摘要」可参考：'
+    '',
+    '当用户说"第 N 项 / 编号 N / N 号"时，对应下面 Top-K 里 rank=N 的那一项。',
+    '低风险或谨慎的候选：可以解释它是什么、为什么会变大、删除后需要重建的代价；但仍要提醒用户自己手动删，不要替用户决定删除。',
+    '高风险或个人/系统区候选：明确建议保留，不要鼓励删除。',
+    '',
+    '【当前 Top-K 详细清单】'
   ]
-  if (state.report && state.report.recommendations.length) {
-    const top = state.report.recommendations.slice(0, state.settings.topK)
+  const recs = state.report?.recommendations || []
+  if (recs.length) {
+    const top = recs.slice(0, state.settings.topK)
     top.forEach((item) => {
-      const riskLabel = item.risk === 'low' ? '低风险' : item.risk === 'medium' ? '谨慎' : '高风险'
-      lines.push(item.rank + '. ' + (item.node.name || item.label) + ' · ' + item.sizeText + ' · ' + riskLabel + ' · ' + item.node.path)
+      lines.push(
+        '#' + item.rank + ' ' + (item.node.name || item.label) +
+        ' · ' + item.sizeText + ' · ' + riskLabel(item.risk) +
+        ' · 类别=' + item.label +
+        ' · 路径=' + item.node.path
+      )
+      lines.push('  用途：' + item.purpose.summary)
+      if (item.purpose.details.length) lines.push('  细节：' + item.purpose.details.join('；'))
+      lines.push('  删除影响：' + item.purpose.impact)
+      if (item.reasons.length) lines.push('  依据：' + item.reasons.join('；'))
     })
   } else {
-    lines.push('当前还没有扫描结果。')
+    lines.push('当前还没有扫描结果。可以引导用户先点开始扫描。')
   }
   const decisions = state.memory.records.length
   if (decisions > 0) {
-    lines.push('用户已积累 ' + decisions + ' 条处理记录，可作为推荐倾向参考。')
+    lines.push('')
+    lines.push('用户已积累 ' + decisions + ' 条历史处理记录，可作为推荐倾向参考（被多次清理的 signature 更值得推荐）。')
   }
-  const recentNotes = state.assistantMemory.notes.slice(-3).map((note) => note.text)
+  const recentNotes = (state.assistantMemory?.notes || []).slice(-5).map((note) => note.text)
   if (recentNotes.length) {
-    lines.push('你记得的用户偏好：' + recentNotes.join('；') + '。')
+    lines.push('')
+    lines.push('【你已记住的用户偏好】')
+    recentNotes.forEach((note) => lines.push('- ' + note))
+    lines.push('若用户的新请求与这些偏好相关，请引用并遵守；若用户说"以后别扫描某目录/别推荐某类"，请确认已记录，并在回复里说明这会影响后续推荐倾向。')
   }
-  lines.push('如果用户要删除文件，请说明风险并提示用户自己手动删除，不要假装你已经执行了删除。')
+  lines.push('')
+  lines.push('如果用户要你直接删除文件，请说明风险并提示用户自己手动删除，不要假装你已经执行了删除。')
   return lines.join('\n')
 }
 
@@ -280,7 +303,7 @@ function registerIpc() {
     runScanJob(state.dataDir, settings, state.memory, abort.signal, (progress) => {
       const window = BrowserWindow.getAllWindows()[0]
       if (window) window.webContents.send('scan:progress', { id: scanId, ...progress })
-    })
+    }, assistantMemoryCache)
       .then(({ report }) => {
         const slot = scanStates.get(scanId)
         if (slot) slot.report = report

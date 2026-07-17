@@ -10,6 +10,8 @@ export interface ScanOptions {
   minDirectoryBytes?: number
   minFileBytes?: number
   scanMode?: ScanMode
+  /** 前缀匹配：命中任一前缀的路径整体跳过（不计入 scanned）。用于"别扫描某目录"这类用户偏好。 */
+  excludePaths?: string[]
 }
 
 export interface ScanResult {
@@ -66,6 +68,15 @@ function isLikelyCandidate(node: ScanNode, minDirectoryBytes: number, minFileByt
   return node.size >= minFileBytes || FILE_CANDIDATE_RE.test(node.path)
 }
 
+function shouldExcludeByUser(currentPath: string, excludePaths?: string[]): boolean {
+  if (!excludePaths || excludePaths.length === 0) return false
+  const normalized = lowerPath(currentPath)
+  return excludePaths.some((prefix) => {
+    if (!prefix) return false
+    return normalized.startsWith(lowerPath(prefix)) || normalized === lowerPath(prefix)
+  })
+}
+
 function maybeReportProgress(options: ScanOptions, counters: Counters, currentPath: string): void {
   if (!options.onProgress) return
   const now = Date.now()
@@ -88,6 +99,10 @@ async function walk(
   warnings: string[]
 ): Promise<{ size: number; nodes: ScanNode[]; childCount: number }> {
   if (isAbortSignal(options.signal)) throw createAbortError()
+
+  if (shouldExcludeByUser(currentPath, options.excludePaths)) {
+    return { size: 0, nodes: [], childCount: 0 }
+  }
 
   if (shouldSkipProtected(currentPath, rootPath)) {
     counters.skippedProtected += 1

@@ -1,4 +1,4 @@
-import { Brain, Send, Sparkles, Trash2, X } from 'lucide-react'
+import { Brain, Loader2, Send, Sparkles, Trash2, X } from 'lucide-react'
 import type { FormEvent } from 'react'
 import type { AssistantMessage } from '../../../shared/types'
 
@@ -79,6 +79,15 @@ export function AssistantDrawer({
             <span>{formatTime(message.createdAt)}</span>
           </div>
         ))}
+
+        {busy && (
+          <div className="chat-bubble assistant thinking-bubble" aria-live="polite">
+            <p>
+              <Loader2 size={14} className="spin" />
+              正在思考……
+            </p>
+          </div>
+        )}
       </div>
 
       {notice && <div className="assistant-notice">{notice}</div>}

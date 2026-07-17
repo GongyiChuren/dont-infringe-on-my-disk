@@ -46,4 +46,21 @@ describe('scanner smoke test', () => {
     expect(scan.nodes.some((node) => node.path.includes('cache'))).toBe(true)
     expect(scan.nodes.some((node) => node.path.includes('documents'))).toBe(false)
   })
+  it('honors excludePaths preference by skipping matching subtrees', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'dimd-excl-'))
+    const keep = path.join(root, 'cache', 'keep.tmp')
+    const skip = path.join(root, 'skip-data', 'big.tmp')
+    await fs.mkdir(path.join(root, 'cache'), { recursive: true })
+    await fs.mkdir(path.join(root, 'skip-data'), { recursive: true })
+    await fs.writeFile(keep, Buffer.alloc(1024))
+    await fs.writeFile(skip, Buffer.alloc(1024))
+
+    const scan = await scanRoot(root, {
+      minDirectoryBytes: 1,
+      minFileBytes: 1,
+      excludePaths: [path.join(root, 'skip-data')]
+    })
+    expect(scan.nodes.some((n) => n.path.includes('skip-data'))).toBe(false)
+    expect(scan.nodes.some((n) => n.path.includes('keep.tmp'))).toBe(true)
+  })
 })

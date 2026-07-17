@@ -1067,3 +1067,41 @@ input[type="range"] {
     grid-template-columns: 44px minmax(0, 1fr) 150px;
   }
 }
+
+/* v0.1.5: 助手实时思考态气泡 */
+@keyframes dimd-spin { to { transform: rotate(360deg); } }
+
+.chat-bubble.thinking-bubble {
+  width: fit-content;
+  max-width: 70%;
+}
+
+.chat-bubble.thinking-bubble p {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+.chat-bubble.thinking-bubble .spin {
+  animation: dimd-spin 0.85s linear infinite;
+}
+
+/* 聊天气泡内的代码块/编号稍好看一点 */
+.chat-bubble p code {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+}
+
+/* 发送框被 focus 时强调 */
+.assistant-compose textarea:focus {
+  outline: 1px solid rgba(94, 196, 201, 0.45);
+  border-color: rgba(94, 196, 201, 0.4);
+}
+
+/* 助手侧栏标题更紧凑耐看 */
+.assistant-title { gap: 8px; }
+.assistant-drawer.open .assistant-title svg { color: var(--cyan); }

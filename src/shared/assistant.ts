@@ -102,11 +102,25 @@ function buildActions(input: string): AssistantAction[] {
   return actions
 }
 
+// 把用户的口语偏好解析成结构化 note 文本，便于 AI 引用和后续 scanner 解析。
+// 不改用户的原始语义，只是让记录更规整。
+function buildPreferenceNote(input: string): string {
+  const skipPathMatch = input.match(/(?:别|不要|不用|跳过|忽略|排除)\s*(?:扫描|扫|推荐)?\s*([a-zA-Z]:\\[^\r\n"'<>|?*]*)/i)
+  if (skipPathMatch) {
+    return '不要扫描/推荐目录：' + skipPathMatch[1].trim()
+  }
+  const skipExtMatch = input.match(/(?:别|不要|不用|跳过|忽略)\s*(?:推荐)?\s*\.?([a-z0-9]{2,5})\s*(?:文件|扩展名|格式)?/i)
+  if (skipExtMatch && !/^(top|k|项|号|个)$/.test(skipExtMatch[1].toLowerCase())) {
+    return '不要推荐扩展名：.' + skipExtMatch[1].toLowerCase().trim()
+  }
+  return truncate(input, 180)
+}
+
 function buildNotes(input: string): AssistantMemoryNote[] {
   if (!wantsMemory(input)) return []
   return [{
     id: crypto.randomUUID(),
-    text: truncate(input, 180),
+    text: buildPreferenceNote(input),
     createdAt: new Date().toISOString()
   }]
 }
