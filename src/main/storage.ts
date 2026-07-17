@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { app, safeStorage } from 'electron'
-import type { AiSettingsData, AiSettingsSavePayload, AssistantMemoryData, MemoryRecord, MemorySummary, SettingsData } from '../shared/types'
+import type { AiProviderKind, AiSettingsData, AiSettingsSavePayload, AssistantMemoryData, MemoryRecord, MemorySummary, SettingsData } from '../shared/types'
 import { appendMemoryRecord, clearMemory, loadMemory } from '../shared/memory'
 import { blankAssistantMemory, compactAssistantMemory } from '../shared/assistant'
 import { DEFAULT_SCAN_MODE, isLocalAiProvider, normalizeAiProvider, normalizeScanMode } from '../shared/settings'
@@ -88,6 +88,38 @@ function encryptApiKey(value: string): string {
     throw new Error('当前系统不可用 Electron safeStorage，无法安全保存 API Key。')
   }
   return safeStorage.encryptString(value).toString('base64')
+}
+
+
+export interface AiSettingsSecret {
+  provider: AiProviderKind
+  baseUrl: string
+  model: string
+  apiKey: string
+  configured: boolean
+}
+
+function decryptApiKey(encrypted: string): string {
+  if (!safeStorage.isEncryptionAvailable()) return ''
+  try {
+    return safeStorage.decryptString(Buffer.from(encrypted, 'base64'))
+  } catch {
+    return ''
+  }
+}
+
+export async function readAiSettingsSecret(dataDir: string): Promise<AiSettingsSecret> {
+  const file = path.join(dataDir, AI_SETTINGS_FILE)
+  const loaded = await readJson<Partial<StoredAiSettings>>(file, DEFAULT_AI_SETTINGS)
+  const provider = normalizeAiProvider(loaded.provider)
+  if (isLocalAiProvider(provider)) {
+    return { provider, baseUrl: '', model: '', apiKey: '', configured: true }
+  }
+  const apiKey = loaded.encryptedApiKey ? decryptApiKey(loaded.encryptedApiKey) : ''
+  const baseUrl = String(loaded.baseUrl || '').trim()
+  const model = String(loaded.model || '').trim()
+  // P3: 只有 baseUrl、model、apiKey 都齐了才算“真的配好了 API Provider”，否则视为未配置。
+  return { provider, baseUrl, model, apiKey, configured: Boolean(baseUrl && model && apiKey) }
 }
 
 export async function loadAiSettings(dataDir: string): Promise<AiSettingsData> {

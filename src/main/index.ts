@@ -15,12 +15,14 @@ import {
   resetMemory,
   saveAiSettings,
   saveAssistantMemory,
-  saveSettings
+  saveSettings,
+  readAiSettingsSecret
 } from './storage'
 import { runScanJob } from './jobs'
 import { isLocalAiProvider, normalizeAiProvider, clampTopK, normalizeScanMode } from '../shared/settings'
 import { buildRecord } from '../shared/memory'
 import { appendAssistantTurn, createAssistantTurn } from '../shared/assistant'
+import { callAiAssistant, toAiChatMessages } from './ai-provider'
 import type { AiSettingsData, AiSettingsSavePayload, AssistantMemoryData, MemorySummary, Recommendation, ScanReport, SettingsData } from '../shared/types'
 
 type ScanState = {
@@ -104,6 +106,35 @@ function sanitizeAssistantInput(payload: { message?: unknown }): string {
   return message
 }
 
+
+function buildAssistantSystemPrompt(state: { settings: SettingsData; memory: MemorySummary; report: ScanReport | null; assistantMemory: AssistantMemoryData }): string {
+  const lines = [
+    '你是 DIMD（Don\'t Infringe on My Disk）的清理助手。DIMD 只负责解释和推荐，永远不会替用户删除任何文件。',
+    '回答用简体中文，简洁直接。',
+    '当前设置：扫描根目录 ' + state.settings.rootPath + '；Top-K = ' + state.settings.topK + '；模式 = ' + state.settings.scanMode + '。',
+    '你有下面这份「当前 Top-K 摘要」可参考：'
+  ]
+  if (state.report && state.report.recommendations.length) {
+    const top = state.report.recommendations.slice(0, state.settings.topK)
+    top.forEach((item) => {
+      const riskLabel = item.risk === 'low' ? '低风险' : item.risk === 'medium' ? '谨慎' : '高风险'
+      lines.push(item.rank + '. ' + (item.node.name || item.label) + ' · ' + item.sizeText + ' · ' + riskLabel + ' · ' + item.node.path)
+    })
+  } else {
+    lines.push('当前还没有扫描结果。')
+  }
+  const decisions = state.memory.records.length
+  if (decisions > 0) {
+    lines.push('用户已积累 ' + decisions + ' 条处理记录，可作为推荐倾向参考。')
+  }
+  const recentNotes = state.assistantMemory.notes.slice(-3).map((note) => note.text)
+  if (recentNotes.length) {
+    lines.push('你记得的用户偏好：' + recentNotes.join('；') + '。')
+  }
+  lines.push('如果用户要删除文件，请说明风险并提示用户自己手动删除，不要假装你已经执行了删除。')
+  return lines.join('\n')
+}
+
 function registerIpc() {
   ipcMain.handle('app:get-state', async () => {
     const state = await getState()
@@ -178,6 +209,37 @@ function registerIpc() {
       settings: state.settings,
       report: lastReportCache
     })
+    const secret = await readAiSettingsSecret(state.dataDir)
+    if (!isLocalAiProvider(secret.provider)) {
+      if (!secret.configured) {
+        turn.assistant.content = '（API Provider 尚未配置完整：需要 Base URL、模型名和已保存的 API Key。当前为本地规则模式。）\n' + turn.assistant.content
+      } else {
+        try {
+          const systemPrompt = buildAssistantSystemPrompt({
+            settings: state.settings,
+            memory: state.memory,
+            report: lastReportCache,
+            assistantMemory: assistantMemoryCache
+          })
+          const history = toAiChatMessages(assistantMemoryCache.messages)
+          history.push({ role: 'user', content: message })
+          const aiReply = await callAiAssistant({
+            provider: secret.provider,
+            baseUrl: secret.baseUrl,
+            model: secret.model,
+            apiKey: secret.apiKey,
+            systemPrompt,
+            messages: history
+          })
+          turn.assistant.content = aiReply
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error)
+          turn.assistant.content = '（AI 调用失败，已回退本地规则模式：' + reason + '）\n' + turn.assistant.content
+        }
+      }
+    } else {
+      turn.assistant.content = '（本地规则模式，未联网）\n' + turn.assistant.content
+    }
     assistantMemoryCache = await saveAssistantMemory(state.dataDir, appendAssistantTurn(assistantMemoryCache, turn))
     return {
       messages: assistantMemoryCache.messages,

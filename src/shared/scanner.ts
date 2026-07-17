@@ -21,7 +21,7 @@ export interface ScanResult {
   warnings: string[]
 }
 
-type Counters = { scanned: number; directories: number; files: number; skippedProtected: number }
+type Counters = { scanned: number; directories: number; files: number; skippedProtected: number; lastProgressMs: number }
 
 const PROTECTED_SEGMENTS = [
   'windows',
@@ -34,6 +34,12 @@ const PROTECTED_SEGMENTS = [
   'perf logs',
   'msocache'
 ]
+
+// P5: 正则只在模块加载时编译一次，避免每次 isLikelyCandidate 调用都新建字面量。
+const DIRECTORY_CANDIDATE_RE = /cache|temp|tmp|download|backup|build|dist|node_modules|logs/i
+const FILE_CANDIDATE_RE = /cache|temp|tmp|log|bak|old|zip|rar|7z|iso|img|mp4|mkv|mov|avi|mp3|flac|wav|aac|exe|msi/i
+// P1: 进度上报按时间节流。200ms 上限既避免大目录刷屏，也能让小目录的首次进度尽早送达。
+const PROGRESS_THROTTLE_MS = 200
 
 function isAbortSignal(signal?: AbortSignal): boolean {
   return Boolean(signal?.aborted)
@@ -55,9 +61,22 @@ function shouldSkipProtected(currentPath: string, rootPath: string): boolean {
 
 function isLikelyCandidate(node: ScanNode, minDirectoryBytes: number, minFileBytes: number): boolean {
   if (node.isDirectory) {
-    return node.size >= minDirectoryBytes || /cache|temp|tmp|download|backup|build|dist|node_modules|logs/i.test(node.path)
+    return node.size >= minDirectoryBytes || DIRECTORY_CANDIDATE_RE.test(node.path)
   }
-  return node.size >= minFileBytes || /cache|temp|tmp|log|bak|old|zip|rar|7z|iso|img|mp4|mkv|mov|avi|mp3|flac|wav|aac|exe|msi/i.test(node.path)
+  return node.size >= minFileBytes || FILE_CANDIDATE_RE.test(node.path)
+}
+
+function maybeReportProgress(options: ScanOptions, counters: Counters, currentPath: string): void {
+  if (!options.onProgress) return
+  const now = Date.now()
+  if (counters.lastProgressMs !== 0 && now - counters.lastProgressMs < PROGRESS_THROTTLE_MS) return
+  counters.lastProgressMs = now
+  options.onProgress({
+    scanned: counters.scanned,
+    directories: counters.directories,
+    files: counters.files,
+    currentPath
+  })
 }
 
 async function walk(
@@ -160,14 +179,7 @@ async function walk(
     children.push(node)
   }
 
-  if (options.onProgress && counters.scanned % 80 === 0) {
-    options.onProgress({
-      scanned: counters.scanned,
-      directories: counters.directories,
-      files: counters.files,
-      currentPath
-    })
-  }
+  maybeReportProgress(options, counters, currentPath)
 
   return {
     size: totalSize,
@@ -177,7 +189,7 @@ async function walk(
 }
 
 async function scanTargets(rootPath: string, targets: string[], options: ScanOptions, warnings: string[]): Promise<ScanResult> {
-  const counters = { scanned: 0, directories: 0, files: 0, skippedProtected: 0 }
+  const counters = { scanned: 0, directories: 0, files: 0, skippedProtected: 0, lastProgressMs: 0 }
   let nodes: ScanNode[] = []
   for (const target of targets) {
     if (isAbortSignal(options.signal)) throw createAbortError()

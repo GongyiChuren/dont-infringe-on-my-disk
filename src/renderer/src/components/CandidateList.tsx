@@ -44,7 +44,7 @@ export function CandidateList({ recommendations, selectedSignature, isScanning, 
 
         {recommendations.map((item) => (
           <button
-            key={item.signature}
+            key={`${item.signature}::${item.node.path}`}
             className={`candidate-row ${selectedSignature === item.signature ? 'selected' : ''}`}
             onClick={() => onSelect(item.signature)}
           >
