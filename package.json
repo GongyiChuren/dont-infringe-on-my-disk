@@ -1,0 +1,70 @@
+{
+  "name": "dont-infringe-on-my-disk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Don't Infringe on My Disk - AI disk cleanup assistant",
+  "main": "./out/main/index.js",
+  "productName": "Don't Infringe on My Disk",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "dist": "electron-vite build && electron-builder --win portable nsis --config.electronDist=node_modules/electron/dist",
+    "dist:portable": "electron-vite build && electron-builder --win portable --config.electronDist=node_modules/electron/dist",
+    "dist:installer": "electron-vite build && electron-builder --win nsis --config.electronDist=node_modules/electron/dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fontsource/dm-serif-display": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/ibm-plex-sans": "^5.2.8",
+    "lucide-react": "^1.24.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
+  },
+  "build": {
+    "appId": "com.dimd.app",
+    "productName": "Don't Infringe on My Disk",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    },
+    "portable": {
+      "artifactName": "DIMD-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "DIMD-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Don't Infringe on My Disk",
+      "uninstallDisplayName": "Don't Infringe on My Disk"
+    }
+  }
+}
