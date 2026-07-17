@@ -1,6 +1,6 @@
 {
   "name": "dont-infringe-on-my-disk",
-  "version": "0.1.1",
+  "version": "0.1.5",
   "private": true,
   "description": "Don't Infringe on My Disk - AI disk cleanup assistant",
   "main": "./out/main/index.js",
