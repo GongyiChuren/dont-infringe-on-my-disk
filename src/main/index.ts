@@ -19,10 +19,10 @@ import {
   readAiSettingsSecret
 } from './storage'
 import { runScanJob } from './jobs'
-import { isLocalAiProvider, normalizeAiProvider, clampTopK, normalizeScanMode } from '../shared/settings'
+import { normalizeAiProvider, clampTopK, normalizeScanMode } from '../shared/settings'
 import { buildRecord } from '../shared/memory'
 import { appendAssistantTurn, createAssistantTurn } from '../shared/assistant'
-import { callAiAssistant, callLocalCli, toAiChatMessages } from './ai-provider'
+import { callAiAssistant, toAiChatMessages } from './ai-provider'
 import type { AiSettingsData, AiSettingsSavePayload, AssistantMemoryData, MemorySummary, Recommendation, ScanReport, SettingsData } from '../shared/types'
 
 type ScanState = {
@@ -72,13 +72,12 @@ function sanitizeSettings(payload: Partial<SettingsData>): SettingsData {
 
 function sanitizeAiSettings(payload: Partial<AiSettingsSavePayload>): AiSettingsSavePayload {
   const provider = normalizeAiProvider(payload.provider)
-  const localProvider = isLocalAiProvider(provider)
   return {
     provider,
-    baseUrl: localProvider ? '' : String(payload.baseUrl || '').trim().slice(0, 300),
-    model: localProvider ? '' : String(payload.model || '').trim().slice(0, 120),
-    apiKey: localProvider || typeof payload.apiKey !== 'string' ? '' : payload.apiKey.slice(0, 4000),
-    clearApiKey: localProvider || Boolean(payload.clearApiKey)
+    baseUrl: String(payload.baseUrl || '').trim().slice(0, 300),
+    model: String(payload.model || '').trim().slice(0, 120),
+    apiKey: typeof payload.apiKey !== 'string' ? '' : payload.apiKey.slice(0, 4000),
+    clearApiKey: Boolean(payload.clearApiKey)
   }
 }
 
@@ -210,57 +209,31 @@ function registerIpc() {
       report: lastReportCache
     })
     const secret = await readAiSettingsSecret(state.dataDir)
-    if (!isLocalAiProvider(secret.provider)) {
-      if (!secret.configured) {
-        turn.assistant.content = '（API Provider 尚未配置完整：需要 Base URL、模型名和已保存的 API Key。当前为本地规则模式。）\n' + turn.assistant.content
-      } else {
-        try {
-          const systemPrompt = buildAssistantSystemPrompt({
-            settings: state.settings,
-            memory: state.memory,
-            report: lastReportCache,
-            assistantMemory: assistantMemoryCache
-          })
-          const history = toAiChatMessages(assistantMemoryCache.messages)
-          history.push({ role: 'user', content: message })
-          const aiReply = await callAiAssistant({
-            provider: secret.provider,
-            baseUrl: secret.baseUrl,
-            model: secret.model,
-            apiKey: secret.apiKey,
-            systemPrompt,
-            messages: history
-          })
-          turn.assistant.content = aiReply
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error)
-          turn.assistant.content = '（AI 调用失败，已回退本地规则模式：' + reason + '）\n' + turn.assistant.content
-        }
-      }
-    } else if (secret.provider === 'local-codex' || secret.provider === 'local-claude-code') {
-      const history = toAiChatMessages(assistantMemoryCache.messages)
-      history.push({ role: 'user', content: message })
-      const systemPrompt = buildAssistantSystemPrompt({
-        settings: state.settings,
-        memory: state.memory,
-        report: lastReportCache,
-        assistantMemory: assistantMemoryCache
-      })
-      const cliLabel = secret.provider === 'local-codex' ? 'codex' : 'claude-code'
+    if (secret.configured) {
       try {
-        const aiReply = await callLocalCli({
+        const systemPrompt = buildAssistantSystemPrompt({
+          settings: state.settings,
+          memory: state.memory,
+          report: lastReportCache,
+          assistantMemory: assistantMemoryCache
+        })
+        const history = toAiChatMessages(assistantMemoryCache.messages)
+        history.push({ role: 'user', content: message })
+        const aiReply = await callAiAssistant({
           provider: secret.provider,
+          baseUrl: secret.baseUrl,
+          model: secret.model,
+          apiKey: secret.apiKey,
           systemPrompt,
-          messages: history,
-          cwd: state.dataDir
+          messages: history
         })
         turn.assistant.content = aiReply
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error)
-        turn.assistant.content = '（' + cliLabel + ' 调用失败，已回退本地规则模式：' + reason + '）\n' + turn.assistant.content
+        turn.assistant.content = '（AI 调用失败，已回退本地规则模式：' + reason + '）\n' + turn.assistant.content
       }
     } else {
-      turn.assistant.content = '（本地规则模式，未联网：local-opencode 暂未接入真实 CLI）\n' + turn.assistant.content
+      turn.assistant.content = '（本地规则模式，未联网：在 AI 设置里填写 Base URL、模型和 API Key 即可接入）\n' + turn.assistant.content
     }
     assistantMemoryCache = await saveAssistantMemory(state.dataDir, appendAssistantTurn(assistantMemoryCache, turn))
     return {

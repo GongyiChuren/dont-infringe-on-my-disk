@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { isLocalAiProvider, normalizeAiProvider } from '../src/shared/settings'
+import { normalizeAiProvider } from '../src/shared/settings'
 
 describe('AI provider settings', () => {
-  it('separates local runners from API providers', () => {
-    expect(isLocalAiProvider('local-codex')).toBe(true)
-    expect(isLocalAiProvider('local-claude-code')).toBe(true)
-    expect(isLocalAiProvider('openai-compatible')).toBe(false)
+  it('keeps known API providers', () => {
+    expect(normalizeAiProvider('openai-compatible')).toBe('openai-compatible')
+    expect(normalizeAiProvider('anthropic-compatible')).toBe('anthropic-compatible')
   })
 
-  it('falls back to local Codex for unknown providers', () => {
-    expect(normalizeAiProvider('unknown')).toBe('local-codex')
+  it('falls back to openai-compatible for unknown providers', () => {
+    expect(normalizeAiProvider('unknown')).toBe('openai-compatible')
+    expect(normalizeAiProvider('local-codex')).toBe('openai-compatible')
   })
 })

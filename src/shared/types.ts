@@ -112,11 +112,8 @@ export interface PurposeAnalysis {
 }
 
 export type AiProviderKind =
-  | 'local-codex'
-  | 'local-claude-code'
-  | 'local-opencode'
-  | 'openai-responses'
   | 'openai-compatible'
+  | 'openai-responses'
   | 'anthropic-compatible'
 
 export interface AiSettingsData {

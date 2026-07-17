@@ -1,7 +1,6 @@
 import { KeyRound, Save, Settings, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { AiProviderKind, AiSettingsData, AiSettingsSavePayload } from '../../../shared/types'
-import { isLocalAiProvider } from '../../../shared/settings'
 
 interface Props {
   open: boolean
@@ -13,11 +12,8 @@ interface Props {
 }
 
 const providerOptions: Array<{ value: AiProviderKind; label: string; hint: string }> = [
-  { value: 'local-codex', label: 'Codex 本地', hint: '使用本机 Codex CLI 环境，不改全局配置。' },
-  { value: 'local-claude-code', label: 'Claude Code 本地', hint: '使用本机 Claude Code 环境，不改全局配置。' },
-  { value: 'local-opencode', label: 'OpenCode 本地', hint: '使用本机 OpenCode 环境，不改全局配置。' },
-  { value: 'openai-responses', label: 'OpenAI Responses API', hint: 'OpenAI 官方新版接口，通常是 /v1/responses。' },
   { value: 'openai-compatible', label: 'OpenAI-compatible Chat API', hint: '大多数兼容服务走 /v1/chat/completions。' },
+  { value: 'openai-responses', label: 'OpenAI Responses API', hint: 'OpenAI 官方新版接口，通常是 /v1/responses。' },
   { value: 'anthropic-compatible', label: 'Anthropic-compatible API', hint: '填写 baseURL、模型和 API Key。' }
 ]
 
@@ -40,10 +36,7 @@ export function AiSettingsDialog({ open, settings, saving, notice, onSave, onClo
   if (!open) return null
 
   const hint = providerOptions.find((item) => item.value === provider)?.hint || ''
-  const localProvider = isLocalAiProvider(provider)
-  const savePayload: AiSettingsSavePayload = localProvider
-    ? { provider, baseUrl: '', model: '', apiKey: '', clearApiKey: true }
-    : { provider, baseUrl, model, apiKey, clearApiKey }
+  const savePayload: AiSettingsSavePayload = { provider, baseUrl, model, apiKey, clearApiKey }
 
   return (
     <div className="modal-layer">
@@ -69,34 +62,25 @@ export function AiSettingsDialog({ open, settings, saving, notice, onSave, onClo
         </select>
         <p className="field-hint">{hint}</p>
 
-        {localProvider ? (
-          <div className="local-provider-note">
-            <strong>本地直连</strong>
-            <span>使用本机已安装并已登录的命令行工具，不需要 Base URL、模型名或 API Key。</span>
-          </div>
-        ) : (
-          <>
-            <label className="field-label" htmlFor="aiBaseUrl">Base URL</label>
-            <input id="aiBaseUrl" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="例如：https://api.openai.com/v1" />
+        <label className="field-label" htmlFor="aiBaseUrl">Base URL</label>
+        <input id="aiBaseUrl" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="例如：https://api.openai.com/v1" />
 
-            <label className="field-label" htmlFor="aiModel">模型</label>
-            <input id="aiModel" value={model} onChange={(event) => setModel(event.target.value)} placeholder="例如：gpt-5-mini / claude-sonnet-4-5" />
+        <label className="field-label" htmlFor="aiModel">模型</label>
+        <input id="aiModel" value={model} onChange={(event) => setModel(event.target.value)} placeholder="例如：gpt-5-mini / claude-sonnet-4-5" />
 
-            <label className="field-label" htmlFor="aiKey">API Key</label>
-            <div className="key-row">
-              <input id="aiKey" type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={settings.apiKeySet ? '已保存；留空则保留' : '仅 API 模式需要'} />
-              <span className={`key-state ${settings.apiKeySet ? 'saved' : ''}`}>
-                <KeyRound size={14} />
-                {settings.apiKeySet ? '已保存' : '未保存'}
-              </span>
-            </div>
+        <label className="field-label" htmlFor="aiKey">API Key</label>
+        <div className="key-row">
+          <input id="aiKey" type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={settings.apiKeySet ? '已保存；留空则保留' : '需要填 Base URL 后在此粘贴 Key'} />
+          <span className={`key-state ${settings.apiKeySet ? 'saved' : ''}`}>
+            <KeyRound size={14} />
+            {settings.apiKeySet ? '已保存' : '未保存'}
+          </span>
+        </div>
 
-            <label className="checkbox-row">
-              <input type="checkbox" checked={clearApiKey} onChange={(event) => setClearApiKey(event.target.checked)} />
-              <span>清除已保存 API Key</span>
-            </label>
-          </>
-        )}
+        <label className="checkbox-row">
+          <input type="checkbox" checked={clearApiKey} onChange={(event) => setClearApiKey(event.target.checked)} />
+          <span>清除已保存 API Key</span>
+        </label>
 
         {notice && <div className="assistant-notice">{notice}</div>}
 

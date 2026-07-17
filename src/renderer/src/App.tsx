@@ -12,7 +12,7 @@ import { TopBar } from './components/TopBar'
 type MemoryStats = { records: number; signatures: number }
 
 const initialSettings: SettingsData = { rootPath: 'C:\\', topK: 10, scanMode: 'quick' }
-const initialAiSettings: AiSettingsData = { provider: 'local-codex', baseUrl: '', model: '', apiKeySet: false }
+const initialAiSettings: AiSettingsData = { provider: 'openai-compatible', baseUrl: '', model: '', apiKeySet: false }
 
 export function App() {
   const [settings, setSettings] = useState<SettingsData>(initialSettings)

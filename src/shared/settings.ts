@@ -5,17 +5,9 @@ export const MAX_TOP_K = 100
 export const DEFAULT_TOP_K = 10
 export const DEFAULT_SCAN_MODE = 'quick'
 export const AI_PROVIDERS: AiProviderKind[] = [
-  'local-codex',
-  'local-claude-code',
-  'local-opencode',
-  'openai-responses',
   'openai-compatible',
+  'openai-responses',
   'anthropic-compatible'
-]
-export const LOCAL_AI_PROVIDERS: AiProviderKind[] = [
-  'local-codex',
-  'local-claude-code',
-  'local-opencode'
 ]
 
 export function clampTopK(value: number | string | null | undefined): number {
@@ -29,9 +21,5 @@ export function normalizeScanMode(value: unknown): 'quick' | 'deep' {
 }
 
 export function normalizeAiProvider(value: unknown): AiProviderKind {
-  return AI_PROVIDERS.includes(value as AiProviderKind) ? value as AiProviderKind : 'local-codex'
-}
-
-export function isLocalAiProvider(value: AiProviderKind): boolean {
-  return LOCAL_AI_PROVIDERS.includes(value)
+  return AI_PROVIDERS.includes(value as AiProviderKind) ? value as AiProviderKind : 'openai-compatible'
 }

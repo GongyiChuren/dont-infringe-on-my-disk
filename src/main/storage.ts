@@ -4,7 +4,7 @@ import { app, safeStorage } from 'electron'
 import type { AiProviderKind, AiSettingsData, AiSettingsSavePayload, AssistantMemoryData, MemoryRecord, MemorySummary, SettingsData } from '../shared/types'
 import { appendMemoryRecord, clearMemory, loadMemory } from '../shared/memory'
 import { blankAssistantMemory, compactAssistantMemory } from '../shared/assistant'
-import { DEFAULT_SCAN_MODE, isLocalAiProvider, normalizeAiProvider, normalizeScanMode } from '../shared/settings'
+import { DEFAULT_SCAN_MODE, normalizeAiProvider, normalizeScanMode } from '../shared/settings'
 
 const SETTINGS_FILE = 'settings.json'
 const ASSISTANT_MEMORY_FILE = 'assistant-memory.json'
@@ -15,7 +15,7 @@ type StoredAiSettings = Omit<AiSettingsData, 'apiKeySet'> & {
 }
 
 const DEFAULT_AI_SETTINGS: AiSettingsData = {
-  provider: 'local-codex',
+  provider: 'openai-compatible',
   baseUrl: '',
   model: '',
   apiKeySet: false
@@ -72,9 +72,6 @@ export async function saveSettings(dataDir: string, settings: SettingsData): Pro
 
 function publicAiSettings(stored: StoredAiSettings): AiSettingsData {
   const provider = normalizeAiProvider(stored.provider)
-  if (isLocalAiProvider(provider)) {
-    return { provider, baseUrl: '', model: '', apiKeySet: false }
-  }
   return {
     provider,
     baseUrl: stored.baseUrl || '',
@@ -112,13 +109,9 @@ export async function readAiSettingsSecret(dataDir: string): Promise<AiSettingsS
   const file = path.join(dataDir, AI_SETTINGS_FILE)
   const loaded = await readJson<Partial<StoredAiSettings>>(file, DEFAULT_AI_SETTINGS)
   const provider = normalizeAiProvider(loaded.provider)
-  if (isLocalAiProvider(provider)) {
-    return { provider, baseUrl: '', model: '', apiKey: '', configured: true }
-  }
   const apiKey = loaded.encryptedApiKey ? decryptApiKey(loaded.encryptedApiKey) : ''
   const baseUrl = String(loaded.baseUrl || '').trim()
   const model = String(loaded.model || '').trim()
-  // P3: 只有 baseUrl、model、apiKey 都齐了才算“真的配好了 API Provider”，否则视为未配置。
   return { provider, baseUrl, model, apiKey, configured: Boolean(baseUrl && model && apiKey) }
 }
 
@@ -138,14 +131,13 @@ export async function saveAiSettings(dataDir: string, payload: AiSettingsSavePay
   const previous = await readJson<Partial<StoredAiSettings>>(file, DEFAULT_AI_SETTINGS)
   const apiKey = String(payload.apiKey || '').trim()
   const provider = normalizeAiProvider(payload.provider)
-  const localProvider = isLocalAiProvider(provider)
   const next: StoredAiSettings = {
     provider,
-    baseUrl: localProvider ? '' : String(payload.baseUrl || '').trim(),
-    model: localProvider ? '' : String(payload.model || '').trim(),
-    encryptedApiKey: localProvider || payload.clearApiKey ? undefined : previous.encryptedApiKey
+    baseUrl: String(payload.baseUrl || '').trim(),
+    model: String(payload.model || '').trim(),
+    encryptedApiKey: payload.clearApiKey ? undefined : previous.encryptedApiKey
   }
-  if (!localProvider && apiKey) next.encryptedApiKey = encryptApiKey(apiKey)
+  if (apiKey) next.encryptedApiKey = encryptApiKey(apiKey)
   await writeJson(file, next)
   return publicAiSettings(next)
 }
